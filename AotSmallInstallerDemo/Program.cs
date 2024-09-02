@@ -16,7 +16,7 @@ unsafe
         if (hr != 0) return (int)hr;
         var dialog = (IProgressDialog)cw.GetOrCreateObjectForComInstance((nint)comPtr, System.Runtime.InteropServices.CreateObjectFlags.None);
 
-        dialog.SetTitle("Extracting");
+        dialog.SetTitle("Extracting...");
         dialog.SetCancelMsg("Cancelling...", null);
         dialog.StartProgressDialog(null, null, IProgressDialog.DLG_AUTOTIME, null);
 
