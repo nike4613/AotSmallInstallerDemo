@@ -66,9 +66,15 @@ unsafe
 
         using var dialog = CreateInstanceFromGuid<IProgressDialog>(CLSID.CLSID_ProgressDialog);
 
-        fixed (char* str = "Extracting...") dialog.Get()->SetTitle(str);
-        fixed (char* str = "Cancelling...") dialog.Get()->SetCancelMsg(str, null);
-        dialog.Get()->StartProgressDialog(HWND.NULL, null, PROGDLG_AUTOTIME, null);
+        fixed (char* str = "Extracting...") hr = dialog.Get()->SetTitle(str);
+        Marshal.ThrowExceptionForHR(hr);
+        fixed (char* str = "Cancelling...") hr = dialog.Get()->SetCancelMsg(str, null);
+        Marshal.ThrowExceptionForHR(hr);
+        fixed (char* str = $"Extracting to {targetDir}")
+            dialog.Get()->SetLine(1, str, true, null);
+        Marshal.ThrowExceptionForHR(hr);
+        hr = dialog.Get()->StartProgressDialog(HWND.NULL, null, PROGDLG_AUTOTIME, null);
+        Marshal.ThrowExceptionForHR(hr);
 
         Span<char> span = new char[0x4000];
         fixed (char* ptr = span)
@@ -87,8 +93,12 @@ unsafe
                 if (dialog.Get()->HasUserCancelled())
                 {
                     // handle cancellation...
-                    fixed (char* str = "Cancelling...") dialog.Get()->SetLine(1, str, false, null);
-                    dialog.Get()->StartProgressDialog(HWND.NULL, null, PROGDLG_MARQUEEPROGRESS, null);
+                    fixed (char* str = "Cancelling...") hr = dialog.Get()->SetLine(1, str, false, null);
+                    Marshal.ThrowExceptionForHR(hr);
+                    hr = dialog.Get()->SetLine(2, null, false, null);
+                    Marshal.ThrowExceptionForHR(hr);
+                    hr = dialog.Get()->StartProgressDialog(HWND.NULL, null, PROGDLG_MARQUEEPROGRESS, null);
+                    Marshal.ThrowExceptionForHR(hr);
                     break;
                 }
 
@@ -113,11 +123,11 @@ unsafe
                     continue;
                 }
 
-                fixed (char* str = $"Extracting {destinationDirectoryFullPath}")
-                    dialog.Get()->SetLine(1, str, true, null);
                 fixed (char* str = fileDestinationPath)
-                    dialog.Get()->SetLine(2, str, true, null);
-                dialog.Get()->SetProgress((uint)i, (uint)entryCount);
+                    hr = dialog.Get()->SetLine(2, str, true, null);
+                Marshal.ThrowExceptionForHR(hr);
+                hr = dialog.Get()->SetProgress((uint)i, (uint)entryCount);
+                Marshal.ThrowExceptionForHR(hr);
 
                 if (Path.GetFileName(fileDestinationPath).Length == 0)
                 {
@@ -136,10 +146,12 @@ unsafe
                 }
             }
 
-            dialog.Get()->SetProgress((uint)entryCount, (uint)entryCount);
+            hr = dialog.Get()->SetProgress((uint)entryCount, (uint)entryCount);
+            Marshal.ThrowExceptionForHR(hr);
         }
 
-        dialog.Get()->StopProgressDialog();
+        hr = dialog.Get()->StopProgressDialog();
+        Marshal.ThrowExceptionForHR(hr);
         dialog.Dispose();
 
         fixed (char* lpTitle = "Extraction complete")
