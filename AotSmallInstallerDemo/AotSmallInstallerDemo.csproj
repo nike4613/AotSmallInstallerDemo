@@ -16,13 +16,16 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
     <PublishLzmaCompressed>true</PublishLzmaCompressed>
+    <IlcDisableReflection>true</IlcDisableReflection>
     
     <IlcGenerateMstatFile>true</IlcGenerateMstatFile>
     <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="PointerToolkit.TerraFX.Interop.Windows" Version="10.0.26100" />
     <PackageReference Include="PublishAotCompressed" Version="1.0.3" />
+    <PackageReference Include="TerraFX.Interop.Windows" Version="10.0.26100" />
     <DirectPInvoke Include="ole32" />
     <DirectPInvoke Include="kernel32" />
     <DirectPInvoke Include="user32" />

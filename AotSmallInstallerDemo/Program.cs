@@ -1,34 +1,82 @@
-﻿using AotSmallInstallerDemo;
-using System.IO.Compression;
-using System.Net.Http.Headers;
-using System.Runtime.InteropServices.Marshalling;
+﻿using System.IO.Compression;
+using System.Runtime.InteropServices;
+using TerraFX.Interop;
+using TerraFX.Interop.Windows;
+using static TerraFX.Interop.Windows.Windows;
 
 unsafe
 {
-    var hr = Interop.CoInitializeEx(null, Interop.COINIT_MULTITHREADED);
+    var hr = CoInitializeEx(null, (uint)COINIT.COINIT_MULTITHREADED);
     if (hr < 0) return (int)hr;
     var comInitialized = hr == 0;
 
     try
     {
-        var cw = new StrategyBasedComWrappers();
-        hr = Interop.CoCreateInstance(IProgressDialog.CLSID, null, 0x1, IProgressDialog.GUID, out var comPtr);
-        if (hr != 0) return (int)hr;
-        var dialog = (IProgressDialog)cw.GetOrCreateObjectForComInstance((nint)comPtr, System.Runtime.InteropServices.CreateObjectFlags.None);
+        string targetDir;
 
-        dialog.SetTitle("Extracting...");
-        dialog.SetCancelMsg("Cancelling...", null);
-        dialog.StartProgressDialog(null, null, IProgressDialog.DLG_AUTOTIME, null);
+        using (var fileDialog = CreateInstance<FileOpenDialog, IFileOpenDialog>())
+        {
+            FILEOPENDIALOGOPTIONS opts;
+            hr = fileDialog.Get()->GetOptions((uint*)&opts);
+            Marshal.ThrowExceptionForHR(hr);
+
+            opts &= ~FILEOPENDIALOGOPTIONS.FOS_OVERWRITEPROMPT;
+            opts |= FILEOPENDIALOGOPTIONS.FOS_FORCEFILESYSTEM;
+            opts |= FILEOPENDIALOGOPTIONS.FOS_PICKFOLDERS;
+            opts |= FILEOPENDIALOGOPTIONS.FOS_PATHMUSTEXIST;
+            opts |= FILEOPENDIALOGOPTIONS.FOS_DONTADDTORECENT;
+
+            hr = fileDialog.Get()->SetOptions((uint)opts);
+            Marshal.ThrowExceptionForHR(hr);
+
+            using ComPtr<IShellItem> shitem = default;
+            fixed (char* pPath = Environment.CurrentDirectory)
+                hr = SHCreateItemFromParsingName(pPath, null,
+                    __uuidof(shitem.Get()), (void**)shitem.ReleaseAndGetAddressOf());
+            Marshal.ThrowExceptionForHR(hr);
+
+            hr = fileDialog.Get()->SetDefaultFolder(shitem);
+            Marshal.ThrowExceptionForHR(hr);
+
+            fixed (char* pTitle = "Select desintation folder")
+                hr = fileDialog.Get()->SetTitle(pTitle);
+            Marshal.ThrowExceptionForHR(hr);
+
+            hr = fileDialog.Get()->Show(HWND.NULL);
+            if (hr == HRESULT_FROM_WIN32(TerraFX.Interop.Windows.ERROR.ERROR_CANCELLED))
+            {
+                // cancelled, show message box to that effect then exit
+                fixed (char* lpTitle = "Install cancelled")
+                fixed (char* lpText = "Installation cancelled")
+                    MessageBoxW(HWND.NULL, lpText, lpTitle, MB.MB_OK | MB.MB_ICONWARNING);
+                return 0;
+            }
+            Marshal.ThrowExceptionForHR(hr);
+
+            hr = fileDialog.Get()->GetResult(shitem.ReleaseAndGetAddressOf());
+            Marshal.ThrowExceptionForHR(hr);
+
+            char* fsName;
+            hr = shitem.Get()->GetDisplayName(SIGDN.SIGDN_FILESYSPATH, &fsName);
+            Marshal.ThrowExceptionForHR(hr);
+
+            targetDir = new string(fsName);
+            CoTaskMemFree(fsName);
+        }
+
+        using var dialog = CreateInstanceFromGuid<IProgressDialog>(CLSID.CLSID_ProgressDialog);
+
+        fixed (char* str = "Extracting...") dialog.Get()->SetTitle(str);
+        fixed (char* str = "Cancelling...") dialog.Get()->SetCancelMsg(str, null);
+        dialog.Get()->StartProgressDialog(HWND.NULL, null, PROGDLG_AUTOTIME, null);
 
         Span<char> span = new char[0x4000];
         fixed (char* ptr = span)
         {
-            var len = Interop.GetModuleFileNameW(null, ptr, (uint)span.Length + 1);
+            var len = GetModuleFileNameW(HMODULE.NULL, ptr, (uint)span.Length + 1);
             span = span.Slice(0, (int)len);
         }
-
         var filename = span.ToString();
-        var targetDir = Path.Combine(Environment.CurrentDirectory, Path.GetFileNameWithoutExtension(filename));
 
         using (var zipfile = ZipFile.OpenRead(filename))
         {
@@ -36,11 +84,11 @@ unsafe
 
             for (var i = 0; i < entryCount; i++)
             {
-                if (dialog.HasUserCancelled())
+                if (dialog.Get()->HasUserCancelled())
                 {
                     // handle cancellation...
-                    dialog.SetLine(1, "Cancelling...", false, null);
-                    dialog.StartProgressDialog(null, null, IProgressDialog.DLG_MARQUEEPROGRESS, null);
+                    fixed (char* str = "Cancelling...") dialog.Get()->SetLine(1, str, false, null);
+                    dialog.Get()->StartProgressDialog(HWND.NULL, null, PROGDLG_MARQUEEPROGRESS, null);
                     break;
                 }
 
@@ -59,18 +107,21 @@ unsafe
 
                 if (!fileDestinationPath.StartsWith(destinationDirectoryFullPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    Interop.MessageBoxW(null, "Archive is broken...", "Error", Interop.MB_OK | Interop.MB_ICONERROR);
+                    fixed (char* lpTitle = "Error")
+                    fixed (char* lpText = "Archive is broken...")
+                        MessageBoxW(HWND.NULL, lpText, lpTitle, MB.MB_OK | MB.MB_ICONERROR);
                     continue;
                 }
 
-                dialog.SetLine(1, $"Extracting {destinationDirectoryFullPath}", true, null);
-                dialog.SetLine(2, fileDestinationPath, true, null);
-                dialog.SetProgress((uint)i, (uint)entryCount);
+                fixed (char* str = $"Extracting {destinationDirectoryFullPath}")
+                    dialog.Get()->SetLine(1, str, true, null);
+                fixed (char* str = fileDestinationPath)
+                    dialog.Get()->SetLine(2, str, true, null);
+                dialog.Get()->SetProgress((uint)i, (uint)entryCount);
 
                 if (Path.GetFileName(fileDestinationPath).Length == 0)
                 {
                     // If it is a directory:
-
                     if (source.Length != 0)
                         throw new IOException("Directory has data");
 
@@ -85,25 +136,49 @@ unsafe
                 }
             }
 
-            dialog.SetProgress((uint)entryCount, (uint)entryCount);
+            dialog.Get()->SetProgress((uint)entryCount, (uint)entryCount);
         }
 
-        dialog.StopProgressDialog();
+        dialog.Get()->StopProgressDialog();
+        dialog.Dispose();
 
-        Interop.MessageBoxW(null, "Done!", "Extraction complete", Interop.MB_OK | Interop.MB_INFORMATION);
+        fixed (char* lpTitle = "Extraction complete")
+        fixed (char* lpText = "Done!")
+            MessageBoxW(HWND.NULL, lpText, lpTitle, MB.MB_OK | MB.MB_ICONINFORMATION);
     }
     catch (Exception e)
     {
-        Interop.MessageBoxW(null, e.ToString(), "An exception occurred", Interop.MB_OK | Interop.MB_ICONERROR);
+        fixed (char* lpTitle = "An exception occurred")
+        fixed (char* lpText = e.ToString())
+            MessageBoxW(HWND.NULL, lpText, lpTitle, MB.MB_OK | MB.MB_ICONERROR);
         throw;
     }
     finally
     {
         if (comInitialized)
         {
-            Interop.CoUninitialize();
+            CoUninitialize();
         }
     }
 }
 
 return 0;
+
+static unsafe ComPtr<T> CreateInstanceFromGuid<T>(Guid clsid)
+    where T : unmanaged, INativeGuid, IUnknown.Interface
+{
+    ComPtr<T> ptr = default;
+    var hr = CoCreateInstance(
+        &clsid, null,
+        (uint)CLSCTX.CLSCTX_INPROC_SERVER,
+        Windows.__uuidof<T>(), (void**)ptr.ReleaseAndGetAddressOf());
+    Marshal.ThrowExceptionForHR(hr.Value);
+    return ptr;
+}
+
+static ComPtr<TI> CreateInstance<T, TI>()
+    where TI : unmanaged, INativeGuid, IUnknown.Interface
+    where T : unmanaged, INativeGuid
+{
+    return CreateInstanceFromGuid<TI>(Windows.__uuidof<T>());
+}
