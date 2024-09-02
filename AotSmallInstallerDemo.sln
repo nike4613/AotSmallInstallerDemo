@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35209.166
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AotSmallInstallerDemo", "AotSmallInstallerDemo\AotSmallInstallerDemo.csproj", "{7C702761-D503-4BC2-9DBC-CA4C72C0049F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7C702761-D503-4BC2-9DBC-CA4C72C0049F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C702761-D503-4BC2-9DBC-CA4C72C0049F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C702761-D503-4BC2-9DBC-CA4C72C0049F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C702761-D503-4BC2-9DBC-CA4C72C0049F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {99AE2130-1E7B-4FCB-B449-00084291F7CA}
+	EndGlobalSection
+EndGlobal
