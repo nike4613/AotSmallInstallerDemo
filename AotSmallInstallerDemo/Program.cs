@@ -38,7 +38,7 @@ unsafe
             hr = fileDialog.Get()->SetDefaultFolder(shitem);
             Marshal.ThrowExceptionForHR(hr);
 
-            fixed (char* pTitle = "Select desintation folder")
+            fixed (char* pTitle = "Select destination folder")
                 hr = fileDialog.Get()->SetTitle(pTitle);
             Marshal.ThrowExceptionForHR(hr);
 
